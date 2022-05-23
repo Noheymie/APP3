@@ -10,6 +10,7 @@
  7 2093  2217  2349  2489  2637  2794  2960  3136  3322  3520  3729  3951
  8 4186  4435  4699  4978  5274  5588  5920  6272  6645  7040  7459  7902
  */
+
  
 #include <Audio.h>
 #include <Wire.h>
@@ -31,8 +32,9 @@ const float guitar_notes[] = {82.41, 110, 146.8, 196, 246.9, 329.6};
 const float phone_notes[] = {440, 493.88, 261.63, 293.66, 329,6, 349.2, 392};
 
 //Intervale de validité sur la justesse de notre note (Hz)
-const float intervalle_precision = 0.5;
+const float intervale_precision = 0.5;
 
+const float FREQ_MAX_TOLERATED = 500;
 int index_reference = 0; //stocke l'index du tableau dans lequel est associé la fréquence de référence
 float note_ref_freq = 0.0; //valeur réelle de la fréquence de référence (pour être comparé à la fréquence échantillonnée)
 const char*  note_string; // String associé à la note de référence 
@@ -40,7 +42,9 @@ const int offset_phone = 250; // Variable utilisé pour l'affichage sur le monit
 const int offset_guitar = 75; // Variable utilisée pour l'affichage sur le moniteur série
 int index_curseur = 0;
 
-int mode = 1; //mode = 0 : Test à partir d'un téléphone | mode = 1 : Test à partir d'une guitare
+int instru_mode = 1; //0 : Test à partir d'un téléphone | 1 : Test à partir d'une guitare
+int display_mode = 0; //0 : Affichage accordeur classique | 1 : Affichage des notes sur un axe
+
 void setup() {
     AudioMemoryUsageMaxReset();
     AudioMemory(100); // Indique le nombre de blocs mémoire alloués aux stockages des données audios d'entrées. Chaque block contient 128 échantillions audios 
@@ -48,38 +52,46 @@ void setup() {
     notefreq1.begin(.15); 
     pinMode(LED_BUILTIN, OUTPUT);
 
-    if(mode==0)
+    if(instru_mode==0)
       Serial.println(" - Mode téléphone -");
     else
       Serial.println(" - Mode guitare - ");
 
+     if(display_mode==0)
+      Serial.println(" - Affichage accordeur -");
+    else
+      Serial.println(" - Affichage axe - ");
 }
 
 void loop() {
-     
-    // Si une fréquence a été détecté : 
-    if (notefreq1.available()) {
 
-      // Lecture des résultats de l'algorithme YIN
-      float note_sample = notefreq1.read(); // Fréquence
-      float prob_sample = notefreq1.probability(); // Retourne une valeur entre 0 et 1, plus cette valeur est proche de 1, plus l'algorithme de YIN est confiant sur son résultat retourné
+  // Si une fréquence a été détecté : 
+  if (notefreq1.available()) {
 
-      // Affichage sur le moniteur série des résultats
+    // Lecture des résultats de l'algorithme YIN
+    float note_sample = notefreq1.read(); // Fréquence
+    float prob_sample = notefreq1.probability(); // Retourne une valeur entre 0 et 1, plus cette valeur est proche de 1, plus l'algorithme de YIN est confiant sur son résultat retourné
+
+    
+    if(note_sample<FREQ_MAX_TOLERATED){ // FREQUENCE COHERENTE OBTENUE
+      // Affichage note et probabilité
+      Serial.printf("--------");
+      Serial.println();
       Serial.printf("Note: %3.2f | Probability: %.2f\n", note_sample, prob_sample);
 
-      if(mode == 0){ // Mode téléphone
-        
+      // Détermination de la fréquence de référence la plus proche
+      if(instru_mode == 0){ // Mode téléphone 
+   
         // Récupération de l'index correspondant à la plus proche fréquence de référence par rapport à la fréquence mesurée
         index_reference = find_nearest_noteFreq_phone(note_sample);
 
-        
+        // Récupération de la fréquence associée à l'index obtenu  
         note_ref_freq = phone_notes[index_reference];
 
         // Récupération du texte équivalent à la fréquence obtenue (Nom de la note)
         note_string = find_noteString_from_index_phone(index_reference);
       }
-
-      if(mode == 1){ //MODE GUITARE
+      else { //MODE GUITARE
         // Récupération de l'index correspondant à la plus proche fréquence de référence par rapport à la fréquence mesurée
         index_reference = find_nearest_noteFreq_guitar(note_sample); 
       
@@ -89,9 +101,21 @@ void loop() {
         // Récupération du texte équivalent à la fréquence obtenue (Nom de la note)
         note_string = find_noteString_from_index_guitar(index_reference); 
       }
-      
-    // ------------------------------------------- AFFICHAGE TELEPHONE --------------------------------------------------------
-      if(mode==0 && note_sample < 520){ //mode téléphone
+    
+    // PARTIE AFFICHAGE __________________________________________________________________________________________
+    // --------------------- AFFICHAGE TELEPHONE ---------------------
+      if(instru_mode==0){ //mode téléphone
+        if(display_mode == 0){ //AFFICHAGE ACCORDEUR
+          Serial.printf("Note la plus proche : %3.2f",note_ref_freq);
+          Serial.println();
+          if(note_sample < note_ref_freq - intervale_precision)
+            Serial.println("SERREZ LA VIS");
+          else if(note_sample> note_ref_freq +intervale_precision)
+            Serial.println("DESSEREZ LA VIS");
+          else
+            Serial.println("CORDE ACCORDEE");
+        }
+        else{ //AFFICHAGE AVEC AXES
         //Affichage curseur (indiquant la note mesurée)
         index_curseur = (int)(note_sample - offset_phone)/1.2; //Calcul de la position du curseur sur le moniteur série
         for(int i = 0;i<=index_curseur;i++)
@@ -136,14 +160,26 @@ void loop() {
                 break; 
             }
         }
+        }
               
         Serial.println();
         Serial.println();
-      }
+     }
 
     //------------------------------------------- AFFICHAGE GUITARE --------------------------------------------------------
-    
-      if(mode==1){ //MODE GUITARE
+      if(instru_mode==1){ //MODE GUITARE | AFFICHAGE AVEC AXE
+        if(display_mode == 0){ //AFFICHAGE ACCORDEUR
+          Serial.printf("Note la plus proche : %3.2f",note_ref_freq);
+          Serial.println();
+          if(note_sample < note_ref_freq - intervale_precision)
+            Serial.println("SERREZ LA VIS");
+          else if(note_sample> note_ref_freq +intervale_precision)
+            Serial.println("DESSEREZ LA VIS");
+          else
+            Serial.println("CORDE ACCORDEE");
+        }
+        
+        else { // AFFICHAGE AVEC AXES
         //Affichage curseur 
         index_curseur = (int)(note_sample - offset_guitar)/1.2;
         for(int i = 0;i<index_curseur;i++)
@@ -186,11 +222,12 @@ void loop() {
         }
         Serial.println();
         Serial.println();
+        }
       }
-         
     }
-     
-}
+  }
+} 
+
 
 //Retourne la position dans le tableau à laquelle se trouve la plus proche fréquence de référence par rapport à la fréquence mesurée [MODE TELEPHONE]
 int find_nearest_noteFreq_phone(float note_freq){
