@@ -43,7 +43,6 @@ const int offset_guitar = 75; // Variable utilisée pour l'affichage sur le moni
 int index_curseur = 0;
 
 int instru_mode = 1; //0 : Test à partir d'un téléphone | 1 : Test à partir d'une guitare
-int display_mode = 0; //0 : Affichage accordeur classique | 1 : Affichage des notes sur un axe
 
 void setup() {
     AudioMemoryUsageMaxReset();
@@ -56,11 +55,6 @@ void setup() {
       Serial.println(" - Mode téléphone -");
     else
       Serial.println(" - Mode guitare - ");
-
-     if(display_mode==0)
-      Serial.println(" - Affichage accordeur -");
-    else
-      Serial.println(" - Affichage axe - ");
 }
 
 void loop() {
@@ -103,19 +97,19 @@ void loop() {
       }
     
     // PARTIE AFFICHAGE __________________________________________________________________________________________
+     
+    //AFFICHAGE INSTRUCTIONS
+    if(note_sample < note_ref_freq - intervale_precision)
+        Serial.print("SERREZ LA VIS");
+      else if(note_sample> note_ref_freq +intervale_precision)
+        Serial.print("DESSEREZ LA VIS");
+      else
+        Serial.print("CORDE ACCORDEE");
+
+       Serial.println();
     // --------------------- AFFICHAGE TELEPHONE ---------------------
-      if(instru_mode==0){ //mode téléphone
-        if(display_mode == 0){ //AFFICHAGE ACCORDEUR
-          Serial.printf("Note la plus proche : %3.2f",note_ref_freq);
-          Serial.println();
-          if(note_sample < note_ref_freq - intervale_precision)
-            Serial.println("SERREZ LA VIS");
-          else if(note_sample> note_ref_freq +intervale_precision)
-            Serial.println("DESSEREZ LA VIS");
-          else
-            Serial.println("CORDE ACCORDEE");
-        }
-        else{ //AFFICHAGE AVEC AXES
+      if(instru_mode==0){ //mode téléphone  
+        //AFFICHAGE AVEC AXES
         //Affichage curseur (indiquant la note mesurée)
         index_curseur = (int)(note_sample - offset_phone)/1.2; //Calcul de la position du curseur sur le moniteur série
         for(int i = 0;i<=index_curseur;i++)
@@ -160,7 +154,7 @@ void loop() {
                 break; 
             }
         }
-        }
+        
               
         Serial.println();
         Serial.println();
@@ -168,18 +162,7 @@ void loop() {
 
     //------------------------------------------- AFFICHAGE GUITARE --------------------------------------------------------
       if(instru_mode==1){ //MODE GUITARE | AFFICHAGE AVEC AXE
-        if(display_mode == 0){ //AFFICHAGE ACCORDEUR
-          Serial.printf("Note la plus proche : %3.2f",note_ref_freq);
-          Serial.println();
-          if(note_sample < note_ref_freq - intervale_precision)
-            Serial.println("SERREZ LA VIS");
-          else if(note_sample> note_ref_freq +intervale_precision)
-            Serial.println("DESSEREZ LA VIS");
-          else
-            Serial.println("CORDE ACCORDEE");
-        }
-        
-        else { // AFFICHAGE AVEC AXES
+        // AFFICHAGE AVEC AXES
         //Affichage curseur 
         index_curseur = (int)(note_sample - offset_guitar)/1.2;
         for(int i = 0;i<index_curseur;i++)
@@ -188,7 +171,7 @@ void loop() {
         
         //Affichage axe
         for(int i=0;i<221;i++)
-            if(i==6 || i==29 || i==60 || i== 101 || i==143 || i==212)
+            if(i==5 || i==29 || i==59 || i== 100 || i==143 || i==212)
               Serial.printf("|");
             else
               Serial.printf("-");
@@ -197,16 +180,16 @@ void loop() {
         Serial.println();
         for(int i=0;i<220;i++) {
             switch(i){
-              case 6 : 
+              case 5 : 
                 Serial.printf("E2");
                 break;
               case 29 :
                 Serial.printf("A2");
                 break;
-              case 58 : 
+              case 57 : 
                 Serial.printf("D3");
                 break;
-              case 98 : 
+              case 97 : 
                 Serial.printf("G3");
                 break; 
              case 139 : 
@@ -222,8 +205,8 @@ void loop() {
         }
         Serial.println();
         Serial.println();
-        }
       }
+      
     }
   }
 } 
